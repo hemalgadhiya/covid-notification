@@ -3,7 +3,6 @@ import boto3
 from io import StringIO
 import logging
 import json
-# from botocore.exceptions import ClientError
 def lambda_handler(event, context):
 
     logger = logging.getLogger()
