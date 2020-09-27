@@ -1,150 +1,149 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Parameters": {
-    },
-    "Resources":{
-        "daily-update-rule":{
-            "Type": "AWS::Events::Rule",
-            "Properties": {
-              "Description": "cloudwatch rule that triggers lambda function on daily basis",
-              "Name": "codvid-update-rule",
-              "ScheduleExpression": "rate(1 day)",
-              "State": "ENABLED",
-              "Targets": [
-                {
-                  "Arn": {
-                    "Fn::GetAtt": ["Lambda-funtion", "Arn"],
-                    "Id": "covid-lambda-target"
-                  }
-                }
-              ]
-            }
-        },
-        "Lambda-funtion": {
-          "Type": "AWS::Lambda::Function",
-          "Properties": {
-            "Code": {
-              "S3Bucket": {
-                "Ref": "Lambda-code-bucket"
-              },
-              "S3Key": "app.zip"
-            },
-            "FunctionName": "covid-data-tranform",
-            "Handler": "function.lambda_handler",
-            "Runtime": "python3.6",
-            "Timeout": "60",
-            "MemorySize": "256",
-            "Role": {
-              "FnGetAtt": [
-                "lambdaexecutionrole",
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+    "dailyupdaterule": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Description": "cloudwatch rule that triggers lambda function on daily basis",
+        "Name": "codvid-update-rule",
+        "ScheduleExpression": "rate(1 day)",
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "Lambdafuntion",
                 "Arn"
               ]
-            }
+            },
+            "Id": "covid-lambda-target"
           }
+        ]
+      }
+    },
+    "Lambdafuntion": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "covid-lambda-code-bucket",
+          "S3Key": "app.zip"
         },
-        "lambdaexecutionrole": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-              "AssumeRolePolicyDocument": {
-                "Version": "2012-10-17",
-                "Statement": [
-                  {
-                    "Effect": "Allow",
-                    "Principal": {
-                      "Service": [
-                        "lambda.amazonaws.com"
-                      ]
-                    },
-                    "Action": [
-                      "sts:AssumeRole"
-                    ]
-                  }
+        "FunctionName": "covid-data-tranform",
+        "Handler": "function.lambda_handler",
+        "Runtime": "python3.6",
+        "Timeout": "60",
+        "MemorySize": "256",
+        "Role": {
+          "Fn::GetAtt": [
+            "lambdaexecutionrole",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "lambdaexecutionrole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
                 ]
               },
-              "ManagedPolicyArns": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              "RoleName": "covid-lambda-role",
-              "Policies": [
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"],
+        "RoleName": "covid-lambda-role",
+        "Policies": [
+          {
+            "PolicyName": "covid-lambda-policy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
                 {
-                  "PolicyName": "covid-lambda-policy",
-                  "PolicyDocument": {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                      {
-                        "Effect": "Allow",
-                        "Action": [
-                          "s3:PutObject",
-                          "s3:GetObject"
-                        ],
-                        "Resource": [
-                          {"Fn:GetAtt": ["Lambda-code-bucket","Arn"]}
-                        ]
-                      },
-                      {
-                        "Effect": "Allow",
-                        "Action": [
-                          "dynamodb:DescribeTable",
-                          "dynamodb:GetItem",
-                          "dynamodb:PutItem",
-                          "dynamodb:UpdateItem"
-                        ],
-                        "Resource": [
-                          {"Fn:GetAtt": ["bdtable","Arn"]}
-                        ]
-                      }
-                    ]
-                  }
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:ListBucket"
+                  ],
+                  "Resource": [
+                    "arn:aws:s3:::nyt-jh-covid-data/*",
+                    "arn:aws:s3:::nyt-jh-covid-data"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:DescribeTable",
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "Coviddatatable",
+                        "Arn"
+                      ]
+                    }
+                  ]
                 }
               ]
             }
-        },
-        "lambdapermission": {
-          "Type": "AWS::Lambda::Permission",
-          "Properties": {
-            "FunctionName": {"Ref":  "Lambda-funtion"},
-            "Action": "lambda:InvokeFunction",
-            "Principal": "events.amazonaws.com",
-            "SourceArn": {"Fn::GetAtt": ["daily-update-rule", "Arn"]}
           }
+        ]
+      }
+    },
+    "lambdapermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "Lambdafuntion"
         },
-        "Covid-data-table": {
-          "Type": "AWS::DynamoDB::Table",
-          "Properties": {
-            "TableName": "covid_data",
-            "AttributeDefinitions": [
-              {
-                "AttributeName": "date",
-                "AttributeType": "S"
-              },
-              {
-                "AttributeName": "cases",
-                "AttributeType": "S"
-              },
-              {
-                "AttributeName": "deaths",
-                "AttributeType": "S"
-              },
-              {
-                "AttributeName": "recovered",
-                "AttributeType": "N"
-              }
-            ],
-            "BillingMode": "PROVISIONED",
-            "KeySchema": [
-              {
-                "AttributeName": "date",
-                "KeyType": "HASH"
-              }
-            ],
-            "ProvisionedThroughput": {
-              "ReadCapacityUnits": "2",
-              "WriteCapacityUnits": "5"
-            },
-            "StreamSpecification": {
-              "StreamViewType": "NEW_IMAGE"
-            }
+        "Action": "lambda:InvokeFunction",
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "dailyupdaterule",
+            "Arn"
+          ]
         }
-
+      }
+    },
+    "Coviddatatable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": "covid_data",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "date",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingMode": "PROVISIONED",
+        "KeySchema": [
+          {
+            "AttributeName": "date",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": "2",
+          "WriteCapacityUnits": "5"
+        },
+        "StreamSpecification": {
+          "StreamViewType": "NEW_IMAGE"
         }
-
+      }
     }
+  }
 }
